@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Base de connaissance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <svg class="brand-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M4 4.5C4 3.67 4.67 3 5.5 3H12V21H5.5C4.67 21 4 20.33 4 19.5V4.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+        <path d="M20 4.5C20 3.67 19.33 3 18.5 3H12V21H18.5C19.33 21 20 20.33 20 19.5V4.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+      </svg>
+      <div>
+        <h1>Base de connaissance</h1>
+        <p class="subtitle">Ressources, liens &amp; idées glanés au fil des projets</p>
+      </div>
+    </div>
+    <button id="btn-add" class="btn btn-primary">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      Ajouter
+    </button>
+  </div>
+</header>
+
+<main class="container">
+
+  <div class="toolbar">
+    <div class="search-box">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8"/><path d="M21 21L16.65 16.65" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      <input id="search" type="text" placeholder="Rechercher un nom, un mot, une URL…" autocomplete="off" />
+    </div>
+    <div id="tag-filters" class="tag-filters"></div>
+  </div>
+
+  <p id="result-count" class="result-count"></p>
+
+  <div id="state-loading" class="state-message">Chargement des ressources…</div>
+  <div id="state-empty" class="state-message" hidden>Aucune ressource ne correspond à votre recherche.</div>
+  <div id="state-error" class="state-message state-error" hidden></div>
+
+  <div id="grid" class="grid"></div>
+
+</main>
+
+<div id="modal-backdrop" class="modal-backdrop" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-header">
+      <h2 id="modal-title">Ajouter une ressource</h2>
+      <button id="btn-close-modal" class="btn-icon" aria-label="Fermer">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 6L18 18M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <form id="entry-form" class="modal-body">
+      <input type="hidden" id="field-id" />
+      <label>
+        Nom
+        <input id="field-nom" type="text" required placeholder="Titre de la ressource" />
+      </label>
+      <label>
+        URL
+        <input id="field-url" type="text" placeholder="https://…" />
+      </label>
+      <label>
+        Texte / description
+        <textarea id="field-texte" rows="4" placeholder="Notes, contexte, extrait…"></textarea>
+      </label>
+      <label>
+        Note Alex
+        <textarea id="field-note-alex" rows="2" placeholder="Remarques additionnelles"></textarea>
+      </label>
+      <label>
+        Étiquettes
+        <input id="field-etiquettes" type="text" placeholder="ex: ai, tuto, matériel (séparées par des virgules)" />
+      </label>
+      <div class="modal-actions">
+        <div id="delete-zone">
+          <button type="button" id="btn-delete" class="btn btn-danger" hidden>Supprimer</button>
+          <div id="delete-confirm" class="delete-confirm" hidden>
+            <span>Supprimer définitivement ?</span>
+            <button type="button" id="btn-delete-cancel" class="btn btn-ghost btn-sm">Non</button>
+            <button type="button" id="btn-delete-confirm" class="btn btn-danger btn-sm">Oui, supprimer</button>
+          </div>
+        </div>
+        <div class="modal-actions-right">
+          <button type="button" id="btn-cancel" class="btn btn-ghost">Annuler</button>
+          <button type="submit" class="btn btn-primary">Enregistrer</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
