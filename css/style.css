@@ -368,6 +368,16 @@ h1, h2 { margin: 0; }
   letter-spacing: 0.04em;
   color: var(--text-muted);
 }
+.label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+.label-row > span { min-width: 0; }
+.label-row .btn-sm { text-transform: none; letter-spacing: normal; font-weight: 600; flex-shrink: 0; }
+
 .modal-body input[type="text"],
 .modal-body textarea {
   font-family: inherit;

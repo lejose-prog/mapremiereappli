@@ -24,6 +24,7 @@ const fieldUrl = document.getElementById("field-url");
 const fieldTexte = document.getElementById("field-texte");
 const fieldNoteAlex = document.getElementById("field-note-alex");
 const fieldEtiquettes = document.getElementById("field-etiquettes");
+const btnSummarize = document.getElementById("btn-summarize");
 const btnDelete = document.getElementById("btn-delete");
 const deleteConfirm = document.getElementById("delete-confirm");
 const btnDeleteCancel = document.getElementById("btn-delete-cancel");
@@ -253,6 +254,75 @@ entryForm.addEventListener("submit", async (e) => {
   showToast(id ? "Ressource modifiée" : "Ressource ajoutée");
   closeModal();
   loadRows();
+});
+
+const MAX_PAGE_CHARS = 6000;
+
+async function fetchPageText(url) {
+  const response = await fetch(`/proxy?url=${encodeURIComponent(url)}`);
+  const body = await response.text();
+  if (!response.ok) throw new Error(body || `statut ${response.status}`);
+
+  const doc = new DOMParser().parseFromString(body, "text/html");
+  doc.querySelectorAll("script, style, noscript, svg, nav, header, footer, iframe, form").forEach((el) => el.remove());
+  const text = (doc.body?.innerText || "").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+
+  if (!text) throw new Error("Aucun contenu texte trouvé sur cette page (probablement générée en JavaScript)");
+  return text.slice(0, MAX_PAGE_CHARS);
+}
+
+async function summarizeWithLMStudio(text) {
+  const { baseUrl, model } = window.LMSTUDIO_CONFIG;
+  const response = await fetch(`${baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model,
+      temperature: 0.3,
+      messages: [
+        {
+          role: "system",
+          content: "Tu résumes le contenu de pages web en français, en 3 à 5 phrases maximum, de façon concise et fidèle. Réponds uniquement avec le résumé, sans préambule.",
+        },
+        { role: "user", content: text },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`LM Studio a répondu avec le statut ${response.status}`);
+  }
+
+  const data = await response.json();
+  const summary = data.choices?.[0]?.message?.content?.trim();
+  if (!summary) throw new Error("Réponse vide de LM Studio");
+  return summary;
+}
+
+btnSummarize.addEventListener("click", async () => {
+  let url = fieldUrl.value.trim();
+  if (!url) {
+    showToast("Renseignez d'abord une URL avant de résumer", true);
+    return;
+  }
+  if (!/^https?:\/\//i.test(url)) url = "https://" + url;
+
+  btnSummarize.disabled = true;
+  const originalLabel = btnSummarize.textContent;
+
+  try {
+    btnSummarize.textContent = "Récupération de la page…";
+    const pageText = await fetchPageText(url);
+
+    btnSummarize.textContent = "Résumé en cours…";
+    fieldTexte.value = await summarizeWithLMStudio(pageText);
+    showToast("Page résumée par LM Studio");
+  } catch (err) {
+    showToast("Échec du résumé : " + err.message, true);
+  } finally {
+    btnSummarize.disabled = false;
+    btnSummarize.textContent = originalLabel;
+  }
 });
 
 btnDelete.addEventListener("click", () => {
