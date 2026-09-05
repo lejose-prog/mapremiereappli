@@ -12,4 +12,5 @@ window.SUPABASE_CONFIG = {
 window.LMSTUDIO_CONFIG = {
   baseUrl: "http://localhost:1234/v1",
   model: "mistralai/ministral-3-3b",
+  embeddingModel: "text-embedding-nomic-embed-text-v1.5",
 };

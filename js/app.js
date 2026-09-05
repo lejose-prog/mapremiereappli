@@ -9,6 +9,10 @@ const tableBody = document.getElementById("table-body");
 const viewCardsBtn = document.getElementById("view-cards");
 const viewTableBtn = document.getElementById("view-table");
 const searchInput = document.getElementById("search");
+const aiToggle = document.getElementById("ai-search-toggle");
+const indexBanner = document.getElementById("index-banner");
+const indexBannerText = document.getElementById("index-banner-text");
+const btnIndexNow = document.getElementById("btn-index-now");
 const tagFiltersEl = document.getElementById("tag-filters");
 const resultCountEl = document.getElementById("result-count");
 const stateLoading = document.getElementById("state-loading");
@@ -35,6 +39,8 @@ let allRows = [];
 let activeTag = null;
 let searchTerm = "";
 let currentView = localStorage.getItem("bdc-view") === "table" ? "table" : "cards";
+let semanticResults = null;
+let searchDebounceTimer = null;
 
 function splitTags(etiquettes) {
   if (!etiquettes) return [];
@@ -63,7 +69,7 @@ async function loadRows() {
 
   const { data, error } = await client
     .from(TABLE)
-    .select("*")
+    .select("id,nom,url,texte,note_alex,etiquettes,created_at")
     .order("created_at", { ascending: false });
 
   stateLoading.hidden = true;
@@ -77,6 +83,22 @@ async function loadRows() {
   allRows = data;
   renderTagFilters();
   applyFilters();
+  checkIndexStatus();
+}
+
+async function checkIndexStatus() {
+  const { count, error } = await client
+    .from(TABLE)
+    .select("id", { count: "exact", head: true })
+    .is("embedding", null);
+
+  if (error || !count) {
+    indexBanner.hidden = true;
+    return;
+  }
+
+  indexBanner.hidden = false;
+  indexBannerText.textContent = `${count} ressource${count > 1 ? "s" : ""} pas encore indexée${count > 1 ? "s" : ""} pour la recherche intelligente`;
 }
 
 function renderTagFilters() {
@@ -106,9 +128,12 @@ function renderTagFilters() {
 
 function applyFilters() {
   const term = searchTerm.trim().toLowerCase();
+  const semanticMode = aiToggle.checked && semanticResults !== null;
+  const base = semanticMode ? semanticResults : allRows;
 
-  const filtered = allRows.filter((row) => {
+  const filtered = base.filter((row) => {
     if (activeTag && !splitTags(row.etiquettes).includes(activeTag)) return false;
+    if (semanticMode) return true;
     if (!term) return true;
     const haystack = [row.nom, row.texte, row.url, row.note_alex, row.etiquettes]
       .filter(Boolean)
@@ -117,10 +142,27 @@ function applyFilters() {
     return haystack.includes(term);
   });
 
-  resultCountEl.textContent = `${filtered.length} ressource${filtered.length > 1 ? "s" : ""}`;
+  resultCountEl.textContent = `${filtered.length} ressource${filtered.length > 1 ? "s" : ""}` + (semanticMode ? " · recherche intelligente" : "");
   stateEmpty.hidden = filtered.length !== 0;
   renderGrid(filtered);
   renderTable(filtered);
+}
+
+async function runSemanticSearch(term) {
+  resultCountEl.textContent = "Recherche intelligente en cours…";
+  try {
+    const embedding = await getEmbedding(term);
+    const { data, error } = await client.rpc("match_base_de_connaissance", {
+      query_embedding: embedding,
+      match_count: 30,
+    });
+    if (error) throw error;
+    semanticResults = data;
+  } catch (err) {
+    showToast("Recherche intelligente indisponible : " + err.message, true);
+    semanticResults = [];
+  }
+  applyFilters();
 }
 
 function setView(view) {
@@ -238,7 +280,17 @@ entryForm.addEventListener("submit", async (e) => {
 
   const id = fieldId.value;
   const submitBtn = entryForm.querySelector('button[type="submit"]');
+  const originalSubmitLabel = submitBtn.textContent;
   submitBtn.disabled = true;
+
+  let indexed = true;
+  try {
+    submitBtn.textContent = "Indexation…";
+    payload.embedding = await getEmbedding(buildEmbeddingText(payload));
+  } catch (err) {
+    indexed = false;
+  }
+  submitBtn.textContent = originalSubmitLabel;
 
   const { error } = id
     ? await client.from(TABLE).update(payload).eq("id", id)
@@ -251,7 +303,8 @@ entryForm.addEventListener("submit", async (e) => {
     return;
   }
 
-  showToast(id ? "Ressource modifiée" : "Ressource ajoutée");
+  const label = id ? "Ressource modifiée" : "Ressource ajoutée";
+  showToast(indexed ? label : label + " (indexation IA indisponible, LM Studio démarré ?)");
   closeModal();
   loadRows();
 });
@@ -269,6 +322,28 @@ async function fetchPageText(url) {
 
   if (!text) throw new Error("Aucun contenu texte trouvé sur cette page (probablement générée en JavaScript)");
   return text.slice(0, MAX_PAGE_CHARS);
+}
+
+function buildEmbeddingText({ nom, texte, note_alex, etiquettes }) {
+  return [nom, texte, note_alex, etiquettes].filter(Boolean).join("\n").slice(0, 4000);
+}
+
+async function getEmbedding(text) {
+  const { baseUrl, embeddingModel } = window.LMSTUDIO_CONFIG;
+  const response = await fetch(`${baseUrl}/embeddings`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model: embeddingModel, input: text }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`LM Studio (embeddings) a répondu avec le statut ${response.status}`);
+  }
+
+  const data = await response.json();
+  const embedding = data.data?.[0]?.embedding;
+  if (!Array.isArray(embedding)) throw new Error("Réponse d'embedding invalide");
+  return embedding;
 }
 
 async function summarizeWithLMStudio(text) {
@@ -351,7 +426,69 @@ btnDeleteConfirm.addEventListener("click", async () => {
 
 searchInput.addEventListener("input", (e) => {
   searchTerm = e.target.value;
-  applyFilters();
+  clearTimeout(searchDebounceTimer);
+
+  if (!aiToggle.checked) {
+    semanticResults = null;
+    applyFilters();
+    return;
+  }
+
+  if (!searchTerm.trim()) {
+    semanticResults = null;
+    applyFilters();
+    return;
+  }
+
+  searchDebounceTimer = setTimeout(() => runSemanticSearch(searchTerm), 700);
+});
+
+aiToggle.addEventListener("change", () => {
+  searchInput.placeholder = aiToggle.checked
+    ? "Rechercher par sens… (IA locale)"
+    : "Rechercher un nom, un mot, une URL…";
+
+  if (aiToggle.checked && searchTerm.trim()) {
+    runSemanticSearch(searchTerm);
+  } else {
+    semanticResults = null;
+    applyFilters();
+  }
+});
+
+btnIndexNow.addEventListener("click", async () => {
+  btnIndexNow.disabled = true;
+  const originalLabel = btnIndexNow.textContent;
+
+  const { data: rows, error } = await client
+    .from(TABLE)
+    .select("id,nom,texte,note_alex,etiquettes")
+    .is("embedding", null);
+
+  if (error) {
+    showToast("Erreur : " + error.message, true);
+    btnIndexNow.disabled = false;
+    return;
+  }
+
+  let done = 0;
+  for (const row of rows) {
+    btnIndexNow.textContent = `Indexation… (${done}/${rows.length})`;
+    try {
+      const embedding = await getEmbedding(buildEmbeddingText(row));
+      const { error: updateError } = await client.from(TABLE).update({ embedding }).eq("id", row.id);
+      if (updateError) throw updateError;
+      done++;
+    } catch (err) {
+      showToast(`Indexation interrompue à "${row.nom || row.id}" : ${err.message}`, true);
+      break;
+    }
+  }
+
+  btnIndexNow.textContent = originalLabel;
+  btnIndexNow.disabled = false;
+  if (done > 0) showToast(`${done} ressource${done > 1 ? "s" : ""} indexée${done > 1 ? "s" : ""}`);
+  checkIndexStatus();
 });
 
 document.addEventListener("keydown", (e) => {

@@ -139,6 +139,36 @@ h1, h2 { margin: 0; }
 }
 .search-box input::placeholder { color: var(--text-muted); }
 
+.ai-toggle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.ai-toggle input { accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer; }
+.ai-toggle:has(input:checked) { color: var(--accent); }
+
+.index-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--surface);
+  border: 2px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  font-size: 0.8rem;
+  color: var(--accent);
+  box-shadow: 0 0 16px var(--accent-glow);
+}
+
 .tag-filters { display: flex; flex-wrap: wrap; gap: 8px; }
 .tag-chip {
   border: 2px solid var(--border);
