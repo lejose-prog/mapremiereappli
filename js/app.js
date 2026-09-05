@@ -195,6 +195,9 @@ function renderGrid(rows) {
           <button class="btn-icon btn-edit" aria-label="Modifier" title="Modifier">
             <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 20L4.7 16.6L16.5 4.8C17.1 4.2 18 4.2 18.6 4.8L19.7 5.9C20.3 6.5 20.3 7.4 19.7 8L7.9 19.8L4 20Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
           </button>
+          <button class="btn-icon btn-icon-danger btn-delete-row" aria-label="Supprimer" title="Supprimer">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 6L18 18M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
         </div>
       </div>
       ${row.url ? `<a class="card-link" href="${escapeHtml(row.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(row.url)}</a>` : ""}
@@ -204,6 +207,7 @@ function renderGrid(rows) {
     `;
 
     card.querySelector(".btn-edit").addEventListener("click", () => openModal(row));
+    card.querySelector(".btn-delete-row").addEventListener("click", () => deleteRow(row.id));
     grid.appendChild(card);
   });
 }
@@ -226,12 +230,26 @@ function renderTable(rows) {
         <button class="btn-icon btn-edit" aria-label="Modifier" title="Modifier">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 20L4.7 16.6L16.5 4.8C17.1 4.2 18 4.2 18.6 4.8L19.7 5.9C20.3 6.5 20.3 7.4 19.7 8L7.9 19.8L4 20Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
         </button>
+        <button class="btn-icon btn-icon-danger btn-delete-row" aria-label="Supprimer" title="Supprimer">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 6L18 18M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
       </td>
     `;
 
     tr.querySelector(".btn-edit").addEventListener("click", () => openModal(row));
+    tr.querySelector(".btn-delete-row").addEventListener("click", () => deleteRow(row.id));
     tableBody.appendChild(tr);
   });
+}
+
+async function deleteRow(id) {
+  const { error } = await client.from(TABLE).delete().eq("id", id);
+  if (error) {
+    showToast("Erreur : " + error.message, true);
+    return;
+  }
+  showToast("Ressource supprimée");
+  loadRows();
 }
 
 function resetDeleteConfirm() {

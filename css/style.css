@@ -103,6 +103,7 @@ h1, h2 { margin: 0; }
 }
 .btn-icon:hover { border-color: var(--accent); color: var(--accent); }
 .btn-icon svg { width: 17px; height: 17px; }
+.btn-icon-danger:hover { border-color: var(--danger); color: var(--danger); }
 
 /* --- Layout --- */
 .container { max-width: 1100px; margin: 0 auto; padding: 28px 24px 80px; }
@@ -233,9 +234,9 @@ h1, h2 { margin: 0; }
 .data-table col.col-nom { width: 16%; }
 .data-table col.col-url { width: 16%; }
 .data-table col.col-texte { width: 28%; }
-.data-table col.col-note { width: 22%; }
-.data-table col.col-tags { width: 14%; }
-.data-table col.col-actions { width: 4%; }
+.data-table col.col-note { width: 20%; }
+.data-table col.col-tags { width: 12%; }
+.data-table col.col-actions { width: 8%; }
 .data-table th, .data-table td {
   text-align: left;
   padding: 12px 14px;
