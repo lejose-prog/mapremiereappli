@@ -4,6 +4,10 @@ const client = createClient(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.k
 const TABLE = "base_de_connaissance";
 
 const grid = document.getElementById("grid");
+const tableWrap = document.getElementById("table-wrap");
+const tableBody = document.getElementById("table-body");
+const viewCardsBtn = document.getElementById("view-cards");
+const viewTableBtn = document.getElementById("view-table");
 const searchInput = document.getElementById("search");
 const tagFiltersEl = document.getElementById("tag-filters");
 const resultCountEl = document.getElementById("result-count");
@@ -29,6 +33,7 @@ const toastEl = document.getElementById("toast");
 let allRows = [];
 let activeTag = null;
 let searchTerm = "";
+let currentView = localStorage.getItem("bdc-view") === "table" ? "table" : "cards";
 
 function splitTags(etiquettes) {
   if (!etiquettes) return [];
@@ -112,12 +117,25 @@ function applyFilters() {
   });
 
   resultCountEl.textContent = `${filtered.length} ressource${filtered.length > 1 ? "s" : ""}`;
+  stateEmpty.hidden = filtered.length !== 0;
   renderGrid(filtered);
+  renderTable(filtered);
 }
+
+function setView(view) {
+  currentView = view;
+  localStorage.setItem("bdc-view", view);
+  grid.hidden = view !== "cards";
+  tableWrap.hidden = view !== "table";
+  viewCardsBtn.classList.toggle("active", view === "cards");
+  viewTableBtn.classList.toggle("active", view === "table");
+}
+
+viewCardsBtn.addEventListener("click", () => setView("cards"));
+viewTableBtn.addEventListener("click", () => setView("table"));
 
 function renderGrid(rows) {
   grid.innerHTML = "";
-  stateEmpty.hidden = rows.length !== 0;
   if (rows.length === 0) return;
 
   rows.forEach((row) => {
@@ -143,6 +161,32 @@ function renderGrid(rows) {
 
     card.querySelector(".btn-edit").addEventListener("click", () => openModal(row));
     grid.appendChild(card);
+  });
+}
+
+function renderTable(rows) {
+  tableBody.innerHTML = "";
+  if (rows.length === 0) return;
+
+  rows.forEach((row) => {
+    const tags = splitTags(row.etiquettes);
+    const tr = document.createElement("tr");
+
+    tr.innerHTML = `
+      <td class="col-nom">${escapeHtml(row.nom) || "(sans titre)"}</td>
+      <td class="col-url">${row.url ? `<a class="card-link" href="${escapeHtml(row.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(row.url)}</a>` : ""}</td>
+      <td class="col-texte"><div class="cell-clip">${escapeHtml(row.texte)}</div></td>
+      <td class="col-note"><div class="cell-clip">${escapeHtml(row.note_alex)}</div></td>
+      <td class="col-tags"><div class="cell-tags">${tags.map((t) => `<span class="card-tag">${escapeHtml(t)}</span>`).join("")}</div></td>
+      <td class="col-actions">
+        <button class="btn-icon btn-edit" aria-label="Modifier" title="Modifier">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 20L4.7 16.6L16.5 4.8C17.1 4.2 18 4.2 18.6 4.8L19.7 5.9C20.3 6.5 20.3 7.4 19.7 8L7.9 19.8L4 20Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+        </button>
+      </td>
+    `;
+
+    tr.querySelector(".btn-edit").addEventListener("click", () => openModal(row));
+    tableBody.appendChild(tr);
   });
 }
 
@@ -244,4 +288,5 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && !modalBackdrop.hidden) closeModal();
 });
 
+setView(currentView);
 loadRows();

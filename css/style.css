@@ -149,6 +149,88 @@ h1, h2 { margin: 0; }
 
 .result-count { color: var(--text-muted); font-size: 0.82rem; margin: 14px 2px 18px; }
 
+/* --- View toggle --- */
+.view-toggle {
+  display: flex;
+  gap: 2px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 3px;
+  flex-shrink: 0;
+}
+.view-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: 7px;
+  padding: 7px 9px;
+  display: flex;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.view-btn svg { width: 18px; height: 18px; }
+.view-btn:hover { color: var(--text); }
+.view-btn.active { background: var(--accent-soft); color: var(--accent); }
+
+/* --- Table view --- */
+.table-wrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow-x: auto;
+}
+.data-table {
+  width: 100%;
+  min-width: 900px;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.data-table col.col-nom { width: 16%; }
+.data-table col.col-url { width: 16%; }
+.data-table col.col-texte { width: 28%; }
+.data-table col.col-note { width: 22%; }
+.data-table col.col-tags { width: 14%; }
+.data-table col.col-actions { width: 4%; }
+.data-table th, .data-table td {
+  text-align: left;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.data-table th {
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  background: var(--bg);
+}
+.data-table tbody tr:last-child td { border-bottom: none; }
+.data-table tbody tr:hover { background: var(--accent-soft); }
+.data-table td.col-nom { font-weight: 600; overflow-wrap: break-word; }
+.data-table td.col-url { overflow: hidden; }
+.data-table td.col-url .card-link {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.data-table td.col-texte, .data-table td.col-note { color: var(--text-muted); }
+.data-table .cell-clip {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: pre-line;
+  overflow-wrap: break-word;
+}
+.data-table .cell-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.data-table td.col-actions { text-align: right; white-space: nowrap; }
+
 /* --- States --- */
 .state-message {
   text-align: center;
