@@ -311,17 +311,18 @@ entryForm.addEventListener("submit", async (e) => {
 
 const MAX_PAGE_CHARS = 6000;
 
-async function fetchPageText(url) {
+async function fetchPage(url) {
   const response = await fetch(`/proxy?url=${encodeURIComponent(url)}`);
   const body = await response.text();
   if (!response.ok) throw new Error(body || `statut ${response.status}`);
 
   const doc = new DOMParser().parseFromString(body, "text/html");
+  const title = doc.title?.trim().slice(0, 200) || "";
   doc.querySelectorAll("script, style, noscript, svg, nav, header, footer, iframe, form").forEach((el) => el.remove());
   const text = (doc.body?.innerText || "").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
 
   if (!text) throw new Error("Aucun contenu texte trouvé sur cette page (probablement générée en JavaScript)");
-  return text.slice(0, MAX_PAGE_CHARS);
+  return { title, text: text.slice(0, MAX_PAGE_CHARS) };
 }
 
 function buildEmbeddingText({ nom, texte, note_alex, etiquettes }) {
@@ -387,10 +388,10 @@ btnSummarize.addEventListener("click", async () => {
 
   try {
     btnSummarize.textContent = "Récupération de la page…";
-    const pageText = await fetchPageText(url);
+    const { text } = await fetchPage(url);
 
     btnSummarize.textContent = "Résumé en cours…";
-    fieldTexte.value = await summarizeWithLMStudio(pageText);
+    fieldTexte.value = await summarizeWithLMStudio(text);
     showToast("Page résumée par LM Studio");
   } catch (err) {
     showToast("Échec du résumé : " + err.message, true);
@@ -424,9 +425,16 @@ btnDeleteConfirm.addEventListener("click", async () => {
   loadRows();
 });
 
+const ADD_COMMAND_RE = /^\/ajout\s+(\S+)/i;
+
 searchInput.addEventListener("input", (e) => {
   searchTerm = e.target.value;
   clearTimeout(searchDebounceTimer);
+
+  if (searchTerm.trim().toLowerCase().startsWith("/ajout")) {
+    resultCountEl.textContent = "tapez l'URL puis Entrée pour l'ajouter et la résumer";
+    return;
+  }
 
   if (!aiToggle.checked) {
     semanticResults = null;
@@ -442,6 +450,53 @@ searchInput.addEventListener("input", (e) => {
 
   searchDebounceTimer = setTimeout(() => runSemanticSearch(searchTerm), 700);
 });
+
+searchInput.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter" && e.keyCode !== 13) return;
+  const match = searchInput.value.trim().match(ADD_COMMAND_RE);
+  if (!match) return;
+  e.preventDefault();
+  handleAjoutCommand(match[1]);
+});
+
+async function handleAjoutCommand(rawUrl) {
+  let url = rawUrl.trim();
+  if (!/^https?:\/\//i.test(url)) url = "https://" + url;
+
+  searchInput.value = "";
+  searchTerm = "";
+  searchInput.disabled = true;
+  resultCountEl.textContent = `ajout de ${url}…`;
+
+  const payload = { nom: url, url, texte: null, note_alex: null, etiquettes: null };
+  let warning = null;
+
+  try {
+    const { title, text } = await fetchPage(url);
+    if (title) payload.nom = title;
+    payload.texte = await summarizeWithLMStudio(text);
+  } catch (err) {
+    warning = "récupération/résumé impossible (" + err.message + ")";
+  }
+
+  try {
+    payload.embedding = await getEmbedding(buildEmbeddingText(payload));
+  } catch (err) {
+    // indexation best-effort, pas bloquante
+  }
+
+  const { error } = await client.from(TABLE).insert([payload]);
+  searchInput.disabled = false;
+
+  if (error) {
+    showToast("Erreur : " + error.message, true);
+    applyFilters();
+    return;
+  }
+
+  showToast(warning ? `Ressource ajoutée (${warning})` : `Ressource ajoutée et résumée : ${payload.nom}`, !!warning);
+  loadRows();
+}
 
 aiToggle.addEventListener("change", () => {
   searchInput.placeholder = aiToggle.checked
