@@ -29,6 +29,7 @@ const fieldTexte = document.getElementById("field-texte");
 const fieldNoteAlex = document.getElementById("field-note-alex");
 const fieldEtiquettes = document.getElementById("field-etiquettes");
 const btnSummarize = document.getElementById("btn-summarize");
+const btnSuggestTags = document.getElementById("btn-suggest-tags");
 const btnDelete = document.getElementById("btn-delete");
 const deleteConfirm = document.getElementById("delete-confirm");
 const btnDeleteCancel = document.getElementById("btn-delete-cancel");
@@ -375,6 +376,43 @@ async function summarizeWithLMStudio(text) {
   return summary;
 }
 
+async function suggestTagsWithLMStudio(text) {
+  const { baseUrl, model } = window.LMSTUDIO_CONFIG;
+  const response = await fetch(`${baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model,
+      temperature: 0.2,
+      messages: [
+        {
+          role: "system",
+          content: "Tu extrais des étiquettes (tags) pertinentes à partir d'un texte. Réponds uniquement par une liste de 5 étiquettes maximum, en français, en minuscules, courtes (1 à 2 mots), séparées par des virgules, cohérentes entre elles et représentatives du sujet principal. Aucune numérotation, aucune explication, aucune phrase d'introduction.",
+        },
+        { role: "user", content: text },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`LM Studio a répondu avec le statut ${response.status}`);
+  }
+
+  const data = await response.json();
+  const raw = data.choices?.[0]?.message?.content?.trim();
+  if (!raw) throw new Error("Réponse vide de LM Studio");
+
+  const tags = raw
+    .split(/[,\n]/)
+    .map((t) => t.replace(/^[-*\d.\s]+/, "").trim().toLowerCase())
+    .filter(Boolean)
+    .filter((t, i, arr) => arr.indexOf(t) === i)
+    .slice(0, 5);
+
+  if (!tags.length) throw new Error("Aucune étiquette générée");
+  return tags;
+}
+
 btnSummarize.addEventListener("click", async () => {
   let url = fieldUrl.value.trim();
   if (!url) {
@@ -391,13 +429,50 @@ btnSummarize.addEventListener("click", async () => {
     const { text } = await fetchPage(url);
 
     btnSummarize.textContent = "Résumé en cours…";
-    fieldTexte.value = await summarizeWithLMStudio(text);
-    showToast("Page résumée par LM Studio");
+    const summary = await summarizeWithLMStudio(text);
+    fieldTexte.value = summary;
+
+    let tagsSuggested = false;
+    if (!fieldEtiquettes.value.trim()) {
+      try {
+        btnSummarize.textContent = "Suggestion des étiquettes…";
+        const tags = await suggestTagsWithLMStudio(summary);
+        fieldEtiquettes.value = tags.join(", ");
+        tagsSuggested = true;
+      } catch (err) {
+        // suggestion d'étiquettes best-effort, pas bloquante
+      }
+    }
+
+    showToast("Page résumée" + (tagsSuggested ? " et étiquettes suggérées" : "") + " par LM Studio");
   } catch (err) {
     showToast("Échec du résumé : " + err.message, true);
   } finally {
     btnSummarize.disabled = false;
     btnSummarize.textContent = originalLabel;
+  }
+});
+
+btnSuggestTags.addEventListener("click", async () => {
+  const text = fieldTexte.value.trim();
+  if (!text) {
+    showToast("Renseignez d'abord le texte / description avant de suggérer des étiquettes", true);
+    return;
+  }
+
+  btnSuggestTags.disabled = true;
+  const originalLabel = btnSuggestTags.textContent;
+  btnSuggestTags.textContent = "Analyse en cours…";
+
+  try {
+    const tags = await suggestTagsWithLMStudio(text);
+    fieldEtiquettes.value = tags.join(", ");
+    showToast("Étiquettes suggérées par LM Studio");
+  } catch (err) {
+    showToast("Échec de la suggestion : " + err.message, true);
+  } finally {
+    btnSuggestTags.disabled = false;
+    btnSuggestTags.textContent = originalLabel;
   }
 });
 
@@ -475,6 +550,12 @@ async function handleAjoutCommand(rawUrl) {
     const { title, text } = await fetchPage(url);
     if (title) payload.nom = title;
     payload.texte = await summarizeWithLMStudio(text);
+    try {
+      const tags = await suggestTagsWithLMStudio(payload.texte);
+      payload.etiquettes = tags.join(", ");
+    } catch (err) {
+      // suggestion d'étiquettes best-effort, pas bloquante
+    }
   } catch (err) {
     warning = "récupération/résumé impossible (" + err.message + ")";
   }
