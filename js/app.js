@@ -202,7 +202,7 @@ function renderGrid(rows) {
       </div>
       ${row.url ? `<a class="card-link" href="${escapeHtml(row.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(row.url)}</a>` : ""}
       ${row.texte ? `<div class="card-text">${escapeHtml(row.texte)}</div>` : ""}
-      ${row.note_alex ? `<div class="card-note"><b>Note Alex —</b> ${escapeHtml(row.note_alex)}</div>` : ""}
+      ${row.note_alex ? `<div class="card-note"><b>Note Susi —</b> ${escapeHtml(row.note_alex)}</div>` : ""}
       ${tags.length ? `<div class="card-tags">${tags.map((t) => `<span class="card-tag">${escapeHtml(t)}</span>`).join("")}</div>` : ""}
     `;
 
